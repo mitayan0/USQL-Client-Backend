@@ -6,8 +6,7 @@ Match order:
   3. No match                                 -> JIT-provision a new user
 """
 
-import uuid
-
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import models
@@ -22,25 +21,20 @@ def resolve_user(
     avatar_url: str | None,
 ) -> tuple[models.User, bool]:
     """Return (user, is_new)."""
-    identity = (
-        db.query(models.Identity)
-        .filter_by(provider=provider, provider_subject_id=subject)
-        .first()
-    )
+    identity = db.scalars(
+        select(models.Identity).filter_by(provider=provider, provider_subject_id=subject)
+    ).first()
     if identity is not None:
         return identity.user, False
 
     user: models.User | None = None
     if email:
-        user = (
-            db.query(models.User)
-            .filter(models.User.email == email.strip().lower())
-            .first()
-        )
+        user = db.scalars(
+            select(models.User).where(models.User.email == email.strip().lower())
+        ).first()
 
     if user is None:
         user = models.User(
-            id=uuid.uuid4(),
             email=(email or f"{provider}:{subject}").strip().lower(),
             display_name=display_name,
             avatar_url=avatar_url,
@@ -57,7 +51,6 @@ def resolve_user(
 
     db.add(
         models.Identity(
-            id=uuid.uuid4(),
             user_id=user.id,
             provider=provider,
             provider_subject_id=subject,

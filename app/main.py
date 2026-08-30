@@ -1,5 +1,7 @@
 """USQL Client Backend — FastAPI entrypoint."""
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.config import settings
@@ -7,17 +9,30 @@ from app.db import Base, engine
 from app.routers import auth
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+
+
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title=settings.app_name,
     version=settings.version,
     description="USQL Client Backend API — resource-oriented REST interface.",
+    lifespan=lifespan,
     servers=[
         {"url": "/v1", "description": "Current stable API version"},
     ],
 )
 
-# Dev convenience: create tables if missing.
-Base.metadata.create_all(bind=engine)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Update this in prod to specific domains (e.g. your web app URL)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth.router)
 

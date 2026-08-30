@@ -1,4 +1,4 @@
-"""SQLAlchemy models: users, identities (SSO), and refresh-token sessions."""
+"""SQLAlchemy models: users, identities (SSO), refresh-token sessions, and OAuth pending state."""
 
 import uuid
 from datetime import datetime
@@ -18,9 +18,8 @@ from app.db import Base
 class User(Base):
     __tablename__ = "usql_users"
 
-    # DB column: user_id  |  Python attribute: .id
     id: Mapped[uuid.UUID] = mapped_column("user_id", primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(320), unique=True)
     display_name: Mapped[str | None] = mapped_column(String(255))
     avatar_url: Mapped[str | None] = mapped_column(String(2048))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -42,11 +41,10 @@ class Identity(Base):
         UniqueConstraint("provider", "provider_subject_id", name="uq_usql_identity_provider_subject"),
     )
 
-    # DB column: identity_id  |  Python attribute: .id
     id: Mapped[uuid.UUID] = mapped_column("identity_id", primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usql_users.user_id", ondelete="CASCADE"))
-    provider: Mapped[str] = mapped_column(String(50), nullable=False)  # google | email_password (later)
-    provider_subject_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50))
+    provider_subject_id: Mapped[str] = mapped_column(String(255))
     password_hash: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -56,13 +54,30 @@ class Identity(Base):
 class Session(Base):
     __tablename__ = "usql_sessions"
 
-    # DB column: session_id  |  Python attribute: .id
     id: Mapped[uuid.UUID] = mapped_column("session_id", primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("usql_users.user_id", ondelete="CASCADE"))
-    device_id: Mapped[str] = mapped_column(String(255), nullable=False)
-    refresh_token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    device_id: Mapped[str] = mapped_column(String(255))
+    refresh_token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     user: Mapped["User"] = relationship(back_populates="sessions")
+
+
+class OAuthPendingState(Base):
+    """Short-lived PKCE state entries created when the OAuth flow begins.
+
+    Replaces the in-memory ``_pending`` dict so that state survives process
+    restarts and is shared across multiple workers.  Rows are deleted on
+    ``consume_state`` and can be bulk-purged by a periodic job or on startup.
+    """
+
+    __tablename__ = "usql_oauth_pending"
+
+    state: Mapped[str] = mapped_column(String(64), primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(255))
+    verifier: Mapped[str] = mapped_column(String(128))
+    loopback_callback: Mapped[str] = mapped_column(String(2048))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

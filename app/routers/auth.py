@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import models, oauth, security
@@ -39,9 +40,10 @@ def get_current_user(
 def google_login(
     device_id: str = Query(...),
     callback: str = Query(default=""),
+    db: Session = Depends(get_db),
 ):
     """Start the Google OAuth flow. Redirects the browser to Google."""
-    url = oauth.create_authorize_url(device_id, callback)
+    url = oauth.create_authorize_url(device_id, callback, db)
     return RedirectResponse(url)
 
 
@@ -51,11 +53,16 @@ def _error_redirect(callback: str, message: str):
 
 
 @router.get("/callback")
-def google_callback(code: str | None = None, state: str = "", error: str | None = None, db: Session = Depends(get_db)):
+def google_callback(
+    code: str | None = None,
+    state: str = "",
+    error: str | None = None,
+    db: Session = Depends(get_db),
+):
     """Google redirects here after consent. Issues app session tokens and
     delivers them to the desktop loopback URL."""
     try:
-        entry = oauth.consume_state(state)
+        entry = oauth.consume_state(state, db)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid or expired state") from exc
 
@@ -90,7 +97,6 @@ def google_callback(code: str | None = None, state: str = "", error: str | None 
     raw_refresh, refresh_hash = security.generate_refresh_token()
     db.add(
         models.Session(
-            id=uuid.uuid4(),
             user_id=user.id,
             device_id=entry["device_id"],
             refresh_token_hash=refresh_hash,
@@ -110,11 +116,9 @@ def google_callback(code: str | None = None, state: str = "", error: str | None 
 
 @router.post("/refresh", response_model=AccessTokenResponse)
 def refresh(refresh_token: str, db: Session = Depends(get_db)):
-    session = (
-        db.query(models.Session)
-        .filter_by(refresh_token_hash=security.hash_refresh_token(refresh_token))
-        .first()
-    )
+    session = db.scalars(
+        select(models.Session).filter_by(refresh_token_hash=security.hash_refresh_token(refresh_token))
+    ).first()
     if session is None or session.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="invalid or expired refresh token")
     session.last_seen_at = datetime.now(timezone.utc)
@@ -124,11 +128,9 @@ def refresh(refresh_token: str, db: Session = Depends(get_db)):
 
 @router.post("/logout")
 def logout(refresh_token: str, db: Session = Depends(get_db)):
-    session = (
-        db.query(models.Session)
-        .filter_by(refresh_token_hash=security.hash_refresh_token(refresh_token))
-        .first()
-    )
+    session = db.scalars(
+        select(models.Session).filter_by(refresh_token_hash=security.hash_refresh_token(refresh_token))
+    ).first()
     if session is not None:
         db.delete(session)
         db.commit()

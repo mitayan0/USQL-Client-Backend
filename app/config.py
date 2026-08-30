@@ -12,16 +12,14 @@ class Settings(BaseSettings):
     app_name: str = "USQL Client Backend"
     version: str = "0.1.0"
 
-    # PostgreSQL
-    database_url: str = "postgresql://postgres:postgres@127.0.0.1:5431/usqlc"
+    database_url: str  # required — set DATABASE_URL in .env
 
-    # Google OAuth (backend-mediated)
-    google_client_id: str = ""
-    google_client_secret: str = ""
+    google_client_id: str  # required — set GOOGLE_CLIENT_ID in .env
+    google_client_secret: str  # required — set GOOGLE_CLIENT_SECRET in .env
     google_redirect_uri: str = "http://localhost:8000/auth/callback"
 
     # App session tokens
-    jwt_secret: str = "change-me"
+    jwt_secret: str  # required — set JWT_SECRET in .env
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 30
