@@ -37,7 +37,7 @@ uvicorn app.main:app --reload --port 8000
 
 - **API docs (Swagger UI):** http://localhost:8000/docs
 - **ReDoc:** http://localhost:8000/redoc
-- **Health check:** http://localhost:8000/api/v1/health
+- **Health check:** http://localhost:8000/health
 
 ## Database Migrations (Alembic)
 
@@ -86,9 +86,9 @@ alembic history -r current:head
 
 ```
 desktop browser
-  → GET /api/v1/auth/google?device_id=...&callback=<loopback>
+  → GET /auth/google?device_id=...&callback=<loopback>
   → Google consent screen
-  → GET /api/v1/auth/callback?code=...&state=...
+  → GET /auth/callback?code=...&state=...
   → issues access + refresh tokens
   → loopback redirect to the desktop app
 ```
@@ -97,9 +97,9 @@ desktop browser
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/v1/auth/google?device_id=...&callback=<loopback>` | Initiate OAuth flow |
-| `GET` | `/api/v1/auth/callback?code&state` | OAuth callback (Google redirects here) |
-| `POST` | `/api/v1/auth/refresh` | Refresh access token (form: `refresh_token`) |
-| `POST` | `/api/v1/auth/logout` | Revoke refresh token (form: `refresh_token`) |
-| `GET` | `/api/v1/auth/me` | Get current user info (Bearer token required) |
-| `GET` | `/api/v1/health` | Health check |
+| `GET` | `/auth/google?device_id=...&callback=<loopback>` | Initiate OAuth flow |
+| `GET` | `/auth/callback?code&state` | OAuth callback (Google redirects here) |
+| `POST` | `/auth/refresh` | Refresh access token (form: `refresh_token`) |
+| `POST` | `/auth/logout` | Revoke refresh token (form: `refresh_token`) |
+| `GET` | `/auth/me` | Get current user info (Bearer token required) |
+| `GET` | `/health` | Health check |
