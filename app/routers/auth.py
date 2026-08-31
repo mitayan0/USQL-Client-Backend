@@ -72,7 +72,7 @@ def google_callback(
 
     try:
         tokens = oauth.exchange_code(code, entry["verifier"])
-    except Exception as exc:
+    except Exception:
         return _error_redirect(entry["loopback_callback"], "Google token exchange failed.")
 
     id_token = tokens.get("id_token")
@@ -81,7 +81,7 @@ def google_callback(
 
     try:
         claims = oauth.validate_id_token(id_token)
-    except Exception as exc:
+    except Exception:
         return _error_redirect(entry["loopback_callback"], "Google identity validation failed.")
 
     user, _ = user_service.resolve_user(
