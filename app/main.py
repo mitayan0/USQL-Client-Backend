@@ -5,16 +5,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.config import settings
-from app.db import Base, engine
 from app.routers import auth
-
+from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
 
 
-from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI(
     title=settings.app_name,
