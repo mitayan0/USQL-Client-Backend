@@ -22,6 +22,13 @@ pip install -r requirements.txt
 copy .env.example .env            # Windows
 # cp .env.example .env            # macOS / Linux
 # → open .env and fill in DATABASE_URL + Google OAuth credentials + JWT_SECRET
+
+# 5. Create the database once (name must match DATABASE_URL in .env)
+createdb -U postgres usqlc
+# or: psql -U postgres -c "CREATE DATABASE usqlc;"
+
+# 6. Create the tables
+alembic upgrade head
 ```
 
 ## Running the App
